@@ -1,1 +1,28 @@
 <!-- testing a popup for extension -->
+ <!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>UIGenie</title>
+  <style>
+    body { font-family: sans-serif; padding: 10px; width: 300px; }
+    input, select, button { width: 100%; margin-bottom: 10px; padding: 5px; }
+    pre { background: #f5f5f5; padding: 5px; max-height: 200px; overflow: auto; }
+  </style>
+</head>
+<body>
+  <h3>UIGenie</h3>
+  <input type="text" id="urlInput" placeholder="Enter website URL (optional)">
+  <select id="modeSelect">
+    <option value="fullCopy">Full Site Copy</option>
+    <option value="inspire">Inspire</option>
+    <option value="themeExtract">UI Theme</option>
+  </select>
+  <input type="text" id="apiKey" placeholder="Gemini API Key">
+  <button id="analyzeBtn">Analyze</button>
+
+  <pre id="output"></pre>
+
+  <script src="popup.js"></script>
+</body>
+</html>
