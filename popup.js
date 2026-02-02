@@ -11,6 +11,18 @@ document.getElementById("analyzeBtn").addEventListener("click", async () => {
   const apiKey = document.getElementById("apiKey").value;
 
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  
+  // If mode is themeExtract, send message to extract styles
+  if (mode === "themeExtract") {
+    chrome.tabs.sendMessage(tab.id, { action: "extractStyles" }, (response) => {
+      if (response && response.success) {
+        document.getElementById("output").textContent = response.message;
+      } else {
+        document.getElementById("output").textContent = "Error: Could not extract styles";
+      }
+    });
+    return;
+  }
 
   // Send message to content.js to get page content
   chrome.tabs.sendMessage(tab.id, { action: "getPageContent" }, async (pageData) => {
