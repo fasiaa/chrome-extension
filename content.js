@@ -57,13 +57,22 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   
   if (msg.action === "extractStyles") {
     const stylesData = extractPageStyles();
+    console.log("Extracted styles from page:", stylesData);
+    
     // Send extracted styles to background.js for processing
     chrome.runtime.sendMessage({
       action: "processStyles",
       data: stylesData
     }, (response) => {
-      sendResponse({ success: true, message: "Styles extracted and sent for processing" });
+      if (chrome.runtime.lastError) {
+        console.error("Error sending to background:", chrome.runtime.lastError);
+      } else {
+        console.log("Background response:", response);
+      }
     });
-    return true; // Indicates we'll send response asynchronously
+    
+    // Respond to popup immediately
+    sendResponse({ success: true, message: "Styles extracted and sent for processing" });
+    return true;
   }
 });

@@ -14,12 +14,28 @@ document.getElementById("analyzeBtn").addEventListener("click", async () => {
   
   // If mode is themeExtract, send message to extract styles
   if (mode === "themeExtract") {
-    chrome.tabs.sendMessage(tab.id, { action: "extractStyles" }, (response) => {
-      if (response && response.success) {
-        document.getElementById("output").textContent = response.message;
-      } else {
-        document.getElementById("output").textContent = "Error: Could not extract styles";
-      }
+    // First, try to inject content script if needed
+    chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      files: ['content.js']
+    }).then(() => {
+      console.log("Content script injected, sending message...");
+      // Now send the message
+      chrome.tabs.sendMessage(tab.id, { action: "extractStyles" }, (response) => {
+        if (chrome.runtime.lastError) {
+          console.error("Error sending message:", chrome.runtime.lastError);
+          document.getElementById("output").textContent = "Error: " + chrome.runtime.lastError.message;
+          return;
+        }
+        if (response && response.success) {
+          document.getElementById("output").textContent = response.message;
+        } else {
+          document.getElementById("output").textContent = "Error: Could not extract styles";
+        }
+      });
+    }).catch((err) => {
+      console.error("Error injecting script:", err);
+      document.getElementById("output").textContent = "Error: Could not access page. Make sure you're on a valid website.";
     });
     return;
   }
