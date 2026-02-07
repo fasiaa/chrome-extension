@@ -29,3 +29,4 @@ logs/
 *.pem
 *.key
 config.json
+tasks.md
