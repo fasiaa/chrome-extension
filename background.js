@@ -51,6 +51,18 @@ const getResponseFromTheModel = async (prompt) => {
         if (!response.ok) {
             const text = await response.text().catch(() => '');
             console.error("Error from the model API:", response.status, response.statusText, text);
+            
+            // Handle specific API key errors with user-friendly messages
+            if (response.status === 400 && text.includes('API_KEY_INVALID')) {
+                return "Error: Invalid API key. Please check your Gemini API key and ensure it's valid and not being used in other projects simultaneously.";
+            } else if (response.status === 401) {
+                return "Error: Authentication failed. Please verify your API key is correct.";
+            } else if (response.status === 429) {
+                return "Error: API rate limit exceeded. Please wait a moment and try again.";
+            } else if (response.status === 500) {
+                return "Error: Server temporarily unavailable. Please try again in a few moments.";
+            }
+            
             return null;
         }
 
