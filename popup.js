@@ -152,18 +152,24 @@ async function extractTheme(tabId) {
       action: 'extractStyles' 
     });
     
-    // Wait for background processing
+    // Wait for background processing with improved timeout handling
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
-        reject(new Error('Theme extraction timeout'));
-      }, 30000); // 30 second timeout
+        reject(new Error('Theme extraction timeout - API may be slow or network issues detected'));
+      }, 60000); // Increased to 60 seconds for better reliability
       
       // Listen for background response
       const listener = (message) => {
         if (message.action === 'themeProcessed') {
           clearTimeout(timeout);
           chrome.runtime.onMessage.removeListener(listener);
-          resolve(message.data);
+          
+          // Check if response contains error
+          if (message.data && message.data.error) {
+            reject(new Error(message.data.error));
+          } else {
+            resolve(message.data);
+          }
         }
       };
       
@@ -191,14 +197,20 @@ async function extractFullSite(tabId) {
     
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
-        reject(new Error('Full site extraction timeout'));
-      }, 90000);
+        reject(new Error('Full site extraction timeout - API may be slow or network issues detected'));
+      }, 120000); // Increased to 120 seconds for full page processing
       
       const listener = (message) => {
         if (message.action === 'fullPageProcessed') {
           clearTimeout(timeout);
           chrome.runtime.onMessage.removeListener(listener);
-          resolve(message.data);
+          
+          // Check if response contains error
+          if (message.data && message.data.error) {
+            reject(new Error(message.data.error));
+          } else {
+            resolve(message.data);
+          }
         }
       };
       
@@ -226,14 +238,20 @@ async function extractInspiration(tabId) {
     
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
-        reject(new Error('Inspiration extraction timeout'));
-      }, 30000);
+        reject(new Error('Inspiration extraction timeout - API may be slow or network issues detected'));
+      }, 60000); // Increased to 60 seconds for better reliability
       
       const listener = (message) => {
         if (message.action === 'inspirationProcessed') {
           clearTimeout(timeout);
           chrome.runtime.onMessage.removeListener(listener);
-          resolve(message.data);
+          
+          // Check if response contains error
+          if (message.data && message.data.error) {
+            reject(new Error(message.data.error));
+          } else {
+            resolve(message.data);
+          }
         }
       };
       

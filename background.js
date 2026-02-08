@@ -100,12 +100,82 @@ const getResponseFromTheModel = async (prompt) => {
 
         // Last resort: try to find any string content
         console.warn('⚠️ Could not extract text using standard paths. Data structure:', Object.keys(data || {}));
-        console.warn('Returning entire response as JSON');
-        return JSON.stringify(data);
+        console.warn('Attempting to extract text from response in a different way...');
+        
+        // Try to find text in any nested structure
+        const findTextInObject = (obj) => {
+            if (typeof obj === 'string') {
+                return obj;
+            }
+            if (typeof obj === 'object' && obj !== null) {
+                for (const key in obj) {
+                    const result = findTextInObject(obj[key]);
+                    if (result) return result;
+                }
+            }
+            return null;
+        };
+        
+        const extractedText = findTextInObject(data);
+        if (extractedText) {
+            console.log('✓ Extracted text using recursive search');
+            return extractedText;
+        }
+        
+        // If all else fails, return a plain text error message instead of JSON
+        console.error('❌ Could not extract any text from model response');
+        return "Error: The AI model did not return a valid response. Please try again.";
     } catch (err) {
         console.error('Error while calling model API:', err);
         return null;
     }
+}
+
+// Format text to render markdown-like formatting as plain text with emphasis
+function formatResponseText(text) {
+    if (!text || typeof text !== 'string') {
+        return text;
+    }
+    
+    // Replace **bold** with BOLD (uppercase) for emphasis
+    text = text.replace(/\*\*(.*?)\*\*/g, (match, content) => {
+        return content.toUpperCase();
+    });
+    
+    // Replace *italic* with *italic* (keep asterisks for emphasis)
+    text = text.replace(/\*(.*?)\*/g, (match, content) => {
+        return `*${content}*`;
+    });
+    
+    // Replace `code` with [code] for emphasis
+    text = text.replace(/`(.*?)`/g, (match, content) => {
+        return `[${content}]`;
+    });
+    
+    // Replace ## Headers with uppercase headers
+    text = text.replace(/^##\s+(.*$)/gm, (match, content) => {
+        return content.toUpperCase() + '\n' + '='.repeat(content.length);
+    });
+    
+    // Replace # Headers with uppercase headers
+    text = text.replace(/^#\s+(.*$)/gm, (match, content) => {
+        return content.toUpperCase() + '\n' + '='.repeat(content.length);
+    });
+    
+    // Replace numbered lists (1., 2., etc.) with clean formatting
+    text = text.replace(/^\s*(\d+)\.\s+(.*$)/gm, (match, number, content) => {
+        return `${number}. ${content}`;
+    });
+    
+    // Replace bullet points (- or *) with clean formatting
+    text = text.replace(/^\s*[-*]\s+(.*$)/gm, (match, content) => {
+        return `• ${content}`;
+    });
+    
+    // Clean up extra spacing
+    text = text.replace(/\n\s*\n\s*\n/g, '\n\n');
+    
+    return text;
 }
 
 // ========================================
@@ -173,8 +243,11 @@ Return a single, comprehensive, plain-text prompt that another AI can use to rec
           return;
         }
 
-        // Send raw text output from the model (no JSON parsing)
-        const result = { success: true, llmOutput: modelText };
+        // Format the response text to render markdown-like formatting properly
+        const formattedText = formatResponseText(modelText);
+        
+        // Send formatted text output from the model
+        const result = { success: true, llmOutput: formattedText };
         console.log("LLM result:", result);
         sendResponse(result);
         
@@ -239,7 +312,10 @@ Return a single, comprehensive, plain-text prompt that another AI can use to rec
           return;
         }
         
-        const result = { success: true, llmOutput: modelText };
+        // Format the response text to render markdown-like formatting properly
+        const formattedText = formatResponseText(modelText);
+        
+        const result = { success: true, llmOutput: formattedText };
         
         // Send to popup
         chrome.runtime.sendMessage({
@@ -297,7 +373,10 @@ Return a single, comprehensive, plain-text prompt that another AI can use for de
           return;
         }
         
-        const result = { success: true, llmOutput: modelText };
+        // Format the response text to render markdown-like formatting properly
+        const formattedText = formatResponseText(modelText);
+        
+        const result = { success: true, llmOutput: formattedText };
         
         // Send to popup
         chrome.runtime.sendMessage({
