@@ -192,7 +192,7 @@ async function extractFullSite(tabId) {
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
         reject(new Error('Full site extraction timeout'));
-      }, 45000);
+      }, 90000);
       
       const listener = (message) => {
         if (message.action === 'fullPageProcessed') {
@@ -251,43 +251,7 @@ function displayResult(result, mode) {
     return;
   }
   
-  let llmOutput = result.llmOutput;
-  let promptText = '';
-  
-  // If llmOutput is a string that looks like JSON with candidates, extract the text
-  if (typeof llmOutput === 'string' && llmOutput.includes('"candidates"')) {
-    try {
-      const obj = JSON.parse(llmOutput);
-      if (obj.candidates && Array.isArray(obj.candidates) && obj.candidates.length > 0) {
-        const text = obj.candidates[0]?.content?.parts?.[0]?.text || 
-                    obj.candidates[0]?.parts?.[0]?.text;
-        if (text) {
-          console.log('Extracted text from JSON string');
-          promptText = text;
-        }
-      }
-    } catch (e) {
-      // Not valid JSON, use as-is
-      promptText = llmOutput;
-    }
-  } else if (typeof llmOutput === 'string') {
-    // If llmOutput is already a string, use it directly
-    promptText = llmOutput;
-  } else if (llmOutput && typeof llmOutput === 'object') {
-    // Try to extract the best text representation from object
-    if (llmOutput.AI_PROMPT && typeof llmOutput.AI_PROMPT === 'string') {
-      promptText = llmOutput.AI_PROMPT;
-    } else if (llmOutput.llm_raw && typeof llmOutput.llm_raw === 'string') {
-      promptText = llmOutput.llm_raw;
-    } else if (llmOutput.prompt && typeof llmOutput.prompt === 'string') {
-      promptText = llmOutput.prompt;
-    } else {
-      // Last resort: stringify
-      promptText = JSON.stringify(llmOutput, null, 2);
-    }
-  } else {
-    promptText = String(llmOutput || 'No response');
-  }
+  const promptText = result.llmOutput;
   
   // Save output to storage for later retrieval
   chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {

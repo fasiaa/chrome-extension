@@ -159,10 +159,10 @@ Task:
 3) Describe spacing scale (small/medium/large) based on CSS values.
 4) Provide tokens for border-radius, shadows, and typical component dimensions.
 5) Provide a short set of CSS rules or variables that reproduce the theme.
-6) Return a final field named "AI_PROMPT" which is a ready-to-send prompt (plain text) that another AI can consume to recreate the UI theme. The "AI_PROMPT" should be self-contained and include any sample CSS and explicit instructions.
+6) Create a ready-to-send prompt (plain text) that another AI can consume to recreate the UI theme. The prompt should be self-contained and include any sample CSS and explicit instructions.
 
-Output format: JSON with keys: colors, fonts, spacing, tokens, sample_css, AI_PROMPT.
-Only return valid JSON — do not include any additional commentary.`;
+Output Format:
+Return a single, comprehensive, plain-text prompt that another AI can use to recreate the UI theme. Do not use JSON or any other structured format. The output should be a single block of text.`;
 
         console.log("Sending prompt to model (length):", prompt.length);
 
@@ -230,13 +230,7 @@ Create a comprehensive AI prompt that another AI agent can use to recreate this 
 6. **Recreation Instructions**: Step-by-step guide for rebuilding
 
 Output Format:
-Return a JSON object with:
-- "structure": Object describing page layout
-- "components": Array of component descriptions
-- "styling": Theme tokens and variables
-- "AI_PROMPT": Complete, self-contained prompt (as plain text) ready to send to another AI
-
-Only return valid JSON without additional commentary.`;
+Return a single, comprehensive, plain-text prompt that another AI can use to recreate the website. Do not use JSON or any other structured format. The output should be a single block of text.`;
 
         const modelText = await getResponseFromTheModel(prompt);
         
@@ -294,15 +288,7 @@ Create a design inspiration prompt that captures the essence and key patterns of
 7. **Mood & Feel**: The emotional impact and user experience
 
 Output Format:
-Return a JSON object with:
-- "design_philosophy": Brief description of the design approach
-- "color_strategy": Color usage patterns
-- "typography": Font usage and hierarchy notes
-- "layout_patterns": Layout and spacing patterns
-- "standout_features": Notable design elements
-- "AI_PROMPT": Complete prompt for using this as design inspiration
-
-Only return valid JSON without additional commentary.`;
+Return a single, comprehensive, plain-text prompt that another AI can use for design inspiration. Do not use JSON or any other structured format. The output should be a single block of text.`;
 
         const modelText = await getResponseFromTheModel(prompt);
         
