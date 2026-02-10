@@ -84,16 +84,20 @@ The extension follows a modular architecture with three main components:
 ### Project Structure
 
 ```
-mysia-extension/
+theme-chrome-extension/
 ├── manifest.json          # Extension configuration
 ├── background.js          # Background script for API communication
 ├── content.js            # Content script for page analysis
 ├── popup.html            # Extension popup interface
 ├── popup.js              # Popup functionality
-├── icon16.png            # Extension icon (16x16)
-├── icon48.png            # Extension icon (48x48)
-├── icon128.png           # Extension icon (128x128)
+├── config.json           # Application configuration
+├── icons/                # Extension icons
+│   ├── icon16.png        # Extension icon (16x16)
+│   ├── icon48.png        # Extension icon (48x48)
+│   └── icon128.png       # Extension icon (128x128)
 ├── manual.md             # User manual
+├── tasks.md              # Project tasks and roadmap
+├── LICENSE               # License file
 └── README.md             # This file
 ```
 
