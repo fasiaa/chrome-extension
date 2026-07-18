@@ -24,6 +24,17 @@ Transform any website into a complete design system, UI theme, or inspiration gu
 - Identify layout patterns and component designs
 - Generate mood and feel descriptions
 
+### DESIGN.md Generation
+- Converts a live site into a [DESIGN.md](https://github.com/google-labs-code/design.md)-spec file agents can consume directly
+- YAML front matter with real color, typography, spacing, and rounded-corner tokens pulled from the page
+- Markdown body with Overview, Colors, Typography, Layout, Elevation & Depth, Shapes, Components, and Do's and Don'ts sections
+- One-click **Copy** or **Download** as a ready-to-drop `DESIGN.md` file
+
+### Smart Caching
+- **UI Theme, Inspire, and DESIGN.md** are cached per *origin* (e.g. `youtube.com`), since a site's design system is normally shared across every page - visiting a different video/article/product page on a site you've already analyzed reuses the same result instead of re-calling Gemini
+- **Full Copy** is cached per *exact URL*, since it captures that specific page's HTML/content, which does change page to page
+- Re-opening the popup on a page covered by an existing cache entry shows it instantly; hit **Re-analyze** to force a fresh run if a site's design has actually changed
+
 ##  Quick Start
 
 ### Installation
@@ -42,19 +53,20 @@ Transform any website into a complete design system, UI theme, or inspiration gu
 
 3. **Setup Your Extension**
    - Click the Mysia extension icon in your Chrome toolbar
-   - Enter your Gemini API key in the popup
+   - Open **API Key & Settings** and enter your Gemini API key
    - Your key will be securely saved for future use
 
 ### Usage
 
 1. **Navigate to any website** you want to analyze
 2. **Click the Mysia extension icon**
-3. **Select your analysis mode**:
-   - **Theme Extract**: Get color palettes, fonts, and design tokens
+3. **Pick an analysis mode** from the icon grid:
    - **Full Copy**: Complete website structure and styling analysis
-   - **Inspiration**: Design patterns and creative insights
-4. **Wait for processing** (typically 10-30 seconds)
-5. **Copy your AI-generated prompt** and use it in your design workflow
+   - **Inspire**: Design patterns and creative insights
+   - **UI Theme**: Color palettes, fonts, and design tokens
+   - **DESIGN.md**: A spec-compliant `DESIGN.md` file with tokens and rationale
+4. **Wait for processing** (typically 10-30 seconds) - or get an instant result if you've already analyzed this site in this mode, thanks to caching
+5. **Copy** the output (or **Download** it directly for DESIGN.md) and use it in your workflow
 
 ## Technical Details
 
@@ -70,14 +82,16 @@ The extension follows a modular architecture with three main components:
 
 - **Google Gemini API**: Powers all AI analysis and content generation
 - **Secure Storage**: API keys are stored locally using Chrome's storage API
-- **Error Handling**: Comprehensive error handling for network issues and API limits
+- **Error Handling**: Comprehensive error handling for network issues, request timeouts, and API limits
 
 ### Data Processing
 
-1. **Content Extraction**: Collects HTML, CSS, and computed styles
-2. **Data Optimization**: Truncates large content to avoid API limits
-3. **AI Analysis**: Sends structured data to Gemini for analysis
-4. **Response Formatting**: Converts AI responses to user-friendly prompts
+1. **Cache Check**: Looks up an existing result for this site + mode before doing anything else
+2. **Content Extraction**: Collects HTML, CSS, computed styles, and design tokens (colors, typography, spacing, radii, shadows)
+3. **Data Optimization**: Truncates large content to avoid API limits
+4. **AI Analysis**: Sends structured data to Gemini for analysis
+5. **Response Formatting**: Converts AI responses to user-friendly prompts (or valid DESIGN.md markdown/YAML)
+6. **Cache Write**: Stores the result so the same site + mode doesn't get re-sent to Gemini next time
 
 ##  Development
 
@@ -117,8 +131,9 @@ theme-chrome-extension/
 3. **Testing**
    - Visit any website
    - Click the extension icon
-   - Test all three analysis modes
+   - Test all four analysis modes
    - Verify API key functionality
+   - Note: `background.js` runs as a Manifest V3 service worker, so reload the extension in `chrome://extensions` after editing it - file changes alone won't be picked up
 
 ### Contributing
 
@@ -156,6 +171,7 @@ We welcome contributions! Please follow these steps:
 - Check your internet connection
 - Try analyzing simpler websites first
 - Verify API quota limits in Google AI Studio
+- If `background.js` was recently edited, reload the extension in `chrome://extensions` - a stale service worker can cause requests to hang
 
 **Extension Not Loading**
 - Ensure Developer mode is enabled in Chrome extensions
@@ -176,6 +192,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 - **Google AI Studio**: For providing the powerful Gemini API
 - **Chrome Extension API**: For enabling seamless browser integration
+- **[google-labs-code/design.md](https://github.com/google-labs-code/design.md)**: For the DESIGN.md format specification
 - **Our Users**: For inspiring continuous improvement
 
 ---

@@ -28,12 +28,27 @@ function openSettings() {
 }
 
 // Per-site result cache: avoids re-sending a site to the model when we
-// already have a result for that exact URL + mode combination.
+// already have a result for that URL + mode combination.
+//
+// Scope differs by mode: fullCopy extracts the actual page's HTML/content,
+// so it's cached per exact URL. themeExtract/inspire/designMd describe the
+// site's overall design system, which is normally identical across pages on
+// the same origin (e.g. youtube.com/watch?v=A vs /watch?v=B) - those are
+// cached per origin so any page on that site reuses the same result.
 const CACHE_STORAGE_KEY = 'uig_site_cache';
 const MAX_CACHE_ENTRIES = 50;
 
+function getScopeUrl(mode, url) {
+  if (mode === 'fullCopy') return url;
+  try {
+    return new URL(url).origin;
+  } catch (error) {
+    return url;
+  }
+}
+
 function cacheKey(mode, url) {
-  return `${mode}::${url}`;
+  return `${mode}::${getScopeUrl(mode, url)}`;
 }
 
 async function getCache() {
@@ -48,7 +63,8 @@ async function getCachedEntry(mode, url) {
 
 async function setCachedEntry(mode, url, promptText) {
   const cache = await getCache();
-  cache[cacheKey(mode, url)] = { promptText, mode, url, timestamp: Date.now() };
+  const scopeUrl = getScopeUrl(mode, url);
+  cache[cacheKey(mode, url)] = { promptText, mode, url: scopeUrl, pageUrl: url, timestamp: Date.now() };
 
   // Evict oldest entries once the cache grows past the cap
   const keys = Object.keys(cache);
@@ -69,7 +85,7 @@ async function loadCachedResultForCurrentTab() {
     if (!tab || !tab.url) return;
 
     const cache = await getCache();
-    const matches = Object.values(cache).filter((entry) => entry.url === tab.url);
+    const matches = Object.values(cache).filter((entry) => entry.url === getScopeUrl(entry.mode, tab.url));
     if (matches.length === 0) return;
 
     const latest = matches.reduce((a, b) => (b.timestamp > a.timestamp ? b : a));
