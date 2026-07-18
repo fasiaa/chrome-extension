@@ -38,15 +38,33 @@ const getResponseFromTheModel = async (prompt) => {
 
         const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
 
-        const response = await fetch(url, {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify({
-                contents: [{ parts: [{ text: prompt }] }]
-            })
-        });
+        // Fetch has no built-in timeout - without this, a stalled connection
+        // hangs forever and the popup's own timeout fires with no real error to show.
+        const controller = new AbortController();
+        const abortTimer = setTimeout(() => controller.abort(), 45000);
+
+        let response;
+        try {
+            response = await fetch(url, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    contents: [{ parts: [{ text: prompt }] }]
+                }),
+                signal: controller.signal
+            });
+        } catch (fetchErr) {
+            if (fetchErr.name === 'AbortError') {
+                console.error("Model request timed out after 45s");
+                return "Error: The request to Gemini timed out. This can happen with very large pages - try again, or use a lighter analysis mode.";
+            }
+            console.error("Network error calling model API:", fetchErr);
+            return `Error: Network error while contacting Gemini - ${fetchErr.message}`;
+        } finally {
+            clearTimeout(abortTimer);
+        }
 
         if (!response.ok) {
             const text = await response.text().catch(() => '');
@@ -190,6 +208,15 @@ function formatResponseText(text) {
     return text;
 }
 
+// Broadcast a result to the popup. Used for both success and failure so the
+// popup's pending listener always resolves instead of hitting its timeout.
+function broadcastToPopup(action, data) {
+    chrome.runtime.sendMessage({ action, data }).catch(() => {
+        // Popup may not be open, that's okay
+        console.log("Could not send to popup (may not be open)");
+    });
+}
+
 // ========================================
 // UNIFIED MESSAGE HANDLER
 // ========================================
@@ -251,29 +278,25 @@ Return a single, comprehensive, plain-text prompt that another AI can use to rec
         const modelText = await getResponseFromTheModel(prompt);
 
         if (!modelText) {
-          sendResponse({ success: false, error: 'Model returned no response', processedData });
+          const failure = { success: false, error: 'Model returned no response' };
+          sendResponse({ ...failure, processedData });
+          broadcastToPopup('themeProcessed', failure);
           return;
         }
 
         // Format the response text to render markdown-like formatting properly
         const formattedText = formatResponseText(modelText);
-        
+
         // Send formatted text output from the model
         const result = { success: true, llmOutput: formattedText };
         console.log("LLM result:", result);
         sendResponse(result);
-        
-        // Also send to popup
-        chrome.runtime.sendMessage({
-          action: 'themeProcessed',
-          data: result
-        }).catch(() => {
-          // Popup may not be open, that's okay
-          console.log("Could not send to popup (may not be open)");
-        });
+        broadcastToPopup('themeProcessed', result);
       } catch (err) {
         console.error("Error processing styles:", err);
-        sendResponse({ success: false, error: err.message || String(err) });
+        const failure = { success: false, error: err.message || String(err) };
+        sendResponse(failure);
+        broadcastToPopup('themeProcessed', failure);
       }
     })();
     return true;
@@ -318,29 +341,25 @@ Output Format:
 Return a single, comprehensive, plain-text prompt that another AI can use to recreate the website. Do not use JSON or any other structured format. The output should be a single block of text.`;
 
         const modelText = await getResponseFromTheModel(prompt);
-        
+
         if (!modelText) {
-          sendResponse({ success: false, error: 'Model returned no response' });
+          const failure = { success: false, error: 'Model returned no response' };
+          sendResponse(failure);
+          broadcastToPopup('fullPageProcessed', failure);
           return;
         }
-        
+
         // Format the response text to render markdown-like formatting properly
         const formattedText = formatResponseText(modelText);
-        
+
         const result = { success: true, llmOutput: formattedText };
-        
-        // Send to popup
-        chrome.runtime.sendMessage({
-          action: 'fullPageProcessed',
-          data: result
-        }).catch(() => {
-          console.log("Could not send to popup (may not be open)");
-        });
-        
         sendResponse(result);
+        broadcastToPopup('fullPageProcessed', result);
       } catch (err) {
         console.error("Error processing full page:", err);
-        sendResponse({ success: false, error: err.message || String(err) });
+        const failure = { success: false, error: err.message || String(err) };
+        sendResponse(failure);
+        broadcastToPopup('fullPageProcessed', failure);
       }
     })();
     return true;
@@ -379,29 +398,144 @@ Output Format:
 Return a single, comprehensive, plain-text prompt that another AI can use for design inspiration. Do not use JSON or any other structured format. The output should be a single block of text.`;
 
         const modelText = await getResponseFromTheModel(prompt);
-        
+
         if (!modelText) {
-          sendResponse({ success: false, error: 'Model returned no response' });
+          const failure = { success: false, error: 'Model returned no response' };
+          sendResponse(failure);
+          broadcastToPopup('inspirationProcessed', failure);
           return;
         }
-        
+
         // Format the response text to render markdown-like formatting properly
         const formattedText = formatResponseText(modelText);
-        
+
         const result = { success: true, llmOutput: formattedText };
-        
-        // Send to popup
-        chrome.runtime.sendMessage({
-          action: 'inspirationProcessed',
-          data: result
-        }).catch(() => {
-          console.log("Could not send to popup (may not be open)");
-        });
-        
         sendResponse(result);
+        broadcastToPopup('inspirationProcessed', result);
       } catch (err) {
         console.error("Error processing inspiration:", err);
-        sendResponse({ success: false, error: err.message || String(err) });
+        const failure = { success: false, error: err.message || String(err) };
+        sendResponse(failure);
+        broadcastToPopup('inspirationProcessed', failure);
+      }
+    })();
+    return true;
+  }
+
+  // Handle DESIGN.md generation (google-labs-code/design.md format)
+  if (msg.action === "processDesignMd") {
+    (async () => {
+      try {
+        console.log("Processing design system data:", msg.data);
+
+        const d = msg.data || {};
+
+        const prompt = `You are an assistant that converts raw, extracted website design data into a valid DESIGN.md file, following the DESIGN.md format specification (https://github.com/google-labs-code/design.md).
+
+DESIGN.md is a self-contained, plain-text representation of a design system. It has exactly two parts:
+
+1. YAML front matter, delimited by "---" fences, containing machine-readable design tokens.
+2. A markdown body made of "##" sections containing human-readable design rationale.
+
+FRONTMATTER SCHEMA (use only real values extracted from the data below, do not invent unrelated values):
+- name: string (required) - a short name for this design system, inferred from the site title/brand
+- description: string (optional) - one sentence describing the visual identity
+- colors: map of token-name -> CSS color value (e.g. primary, secondary, tertiary, neutral, background, surface, text, on-primary, etc.)
+- typography: map of token-name -> typography object with any of: fontFamily, fontSize, fontWeight, lineHeight, letterSpacing (e.g. h1, h2, body-md, label-caps)
+- rounded: map of scale-level -> Dimension (e.g. sm, md, lg matched to observed border-radius values)
+- spacing: map of scale-level -> Dimension or number (e.g. xs, sm, md, lg matched to observed padding/margin values)
+- components: map of component-name -> token map (e.g. button-primary, card, input) using properties from: backgroundColor, textColor, typography, rounded, padding, size, height, width. Prefer token references using {path.to.token} syntax where a component value matches a color/typography/rounded/spacing token exactly (e.g. backgroundColor: "{colors.primary}").
+
+Example of valid frontmatter shape (values are illustrative only, do NOT copy them - use the real extracted data below):
+---
+name: Heritage
+description: Architectural minimalism with a single accent color.
+colors:
+  primary: "#1A1C1E"
+  secondary: "#6C7278"
+typography:
+  h1:
+    fontFamily: Public Sans
+    fontSize: 3rem
+rounded:
+  sm: 4px
+spacing:
+  sm: 8px
+components:
+  button-primary:
+    backgroundColor: "{colors.primary}"
+    rounded: "{rounded.sm}"
+---
+
+MARKDOWN BODY SECTION ORDER (include every section, in exactly this order, using "## " headings):
+1. Overview - the design philosophy/aesthetic in 1-3 sentences
+2. Colors - explain the palette and how each color token is used, referencing the color tokens by name and hex value
+3. Typography - explain font choices, pairings, and hierarchy, referencing the typography tokens
+4. Layout - spacing rhythm, grid/container behavior, alignment principles, referencing the spacing tokens
+5. Elevation & Depth - how shadows/z-layers are used (base this on the observed box-shadow values; if none were observed, state that the design is flat with no elevation)
+6. Shapes - corner radius language, referencing the rounded tokens
+7. Components - describe the sampled components (button, card, input, link, heading) and how their tokens were derived
+8. Do's and Don'ts - a short bullet list of 3-5 concrete guidelines for an agent reproducing this UI
+
+RULES:
+- Output ONLY the DESIGN.md file contents: the "---" delimited YAML frontmatter followed immediately by the markdown body. No commentary before or after, no surrounding \`\`\` code fences.
+- Use real values from the extracted data below wherever possible. Do not fabricate colors, fonts, or dimensions that aren't supported by the data.
+- Keep the YAML valid (proper indentation, quote hex colors).
+
+EXTRACTED DESIGN DATA
+URL: ${d.url}
+Title: ${d.title}
+
+Dominant colors (by frequency, most used first):
+${JSON.stringify(d.colors || [], null, 2)}
+
+Font families observed:
+${JSON.stringify(d.fontFamilies || [], null, 2)}
+
+Font sizes observed:
+${JSON.stringify(d.fontSizes || [], null, 2)}
+
+Font weights observed:
+${JSON.stringify(d.fontWeights || [], null, 2)}
+
+Border-radius values observed:
+${JSON.stringify(d.radii || [], null, 2)}
+
+Box-shadow values observed:
+${JSON.stringify(d.shadows || [], null, 2)}
+
+Spacing (padding/margin) values observed:
+${JSON.stringify(d.spacingValues || [], null, 2)}
+
+Sampled components (computed styles):
+${JSON.stringify(d.components || {}, null, 2)}`;
+
+        console.log("Sending DESIGN.md prompt to model (length):", prompt.length);
+
+        const modelText = await getResponseFromTheModel(prompt);
+
+        if (!modelText) {
+          const failure = { success: false, error: 'Model returned no response' };
+          sendResponse(failure);
+          broadcastToPopup('designMdProcessed', failure);
+          return;
+        }
+
+        // Do NOT run formatResponseText here - it mangles markdown/YAML syntax
+        // (strips **, #, etc.) which would corrupt the DESIGN.md file contents.
+        let designMdText = modelText.trim();
+        // Strip accidental code fences if the model wrapped the output anyway
+        designMdText = designMdText.replace(/^```[a-zA-Z]*\n/, '').replace(/\n```$/, '');
+
+        const result = { success: true, llmOutput: designMdText };
+        console.log("DESIGN.md result:", result);
+        sendResponse(result);
+        broadcastToPopup('designMdProcessed', result);
+      } catch (err) {
+        console.error("Error processing design.md:", err);
+        const failure = { success: false, error: err.message || String(err) };
+        sendResponse(failure);
+        broadcastToPopup('designMdProcessed', failure);
       }
     })();
     return true;
